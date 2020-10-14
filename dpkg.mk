@@ -21,7 +21,7 @@
 # IN THE SOFTWARE.
 
 
-URL_MK?="https://raw.githubusercontent.com/bennof/edo365.deb/master/debpkg.mk"
+URL_MK?="https://raw.githubusercontent.com/bennof/deb.edo365.de/master/dpkg.mk"
 BUILD_PATH?=./dists/stable
 SRC_PATH?=./deb
 REP_NAME?=privatedpkg

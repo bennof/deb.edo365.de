@@ -32,7 +32,7 @@ a makefile for debian packages
 * `SRCS`?=$(shell ls -d $(SRC_PATH)/*/ )
 * `DEBS`?=$(SRCS:%/=$(BUILD_PATH)/%.deb)
 * `RELEASE`=Release
-* `URL_MK`?="https://raw.githubusercontent.com/bennof/debpkg.mk/master/debpkg.mk"
+* `URL_MK`?="https://raw.githubusercontent.com/bennof/deb.edo365.de/master/dpkg.mk"
 
 
 ## Packages
