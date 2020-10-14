@@ -1,0 +1,10 @@
+Package: edo-browser-kiosk
+Version: 0.0.2
+Section: web
+Priority: optional
+Maintainer: bennof
+Homepage: https://www.edo365.de
+Architecture: all
+Depends: xinit, chromium
+Description: Installs chromium to run in kiosk mode without desktop
+

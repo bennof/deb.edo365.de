@@ -1,0 +1,11 @@
+Package: edo-ghost-cms
+Version: 0.0.1
+Section: web
+Priority: optional
+Maintainer: bennof
+Homepage: https://www.edo365.de
+Architecture: all
+Pre-Depends: curl, software-properties-common
+Depends: nginx, mysql-server | mariadb-server, nodejs
+Description: Ghost CMS (https://ghost.org/)
+

@@ -1,0 +1,64 @@
+#!/bin/sh
+# Copyright 2019-2020 Benjamin 'Benno' Falkner
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy 
+# of this software and associated documentation files (the "Software"), to 
+# deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+
+USER_NAME=edo-browser-kiosk
+FULL_NAME="edo365 browser kiosk user"
+
+# Helper functions
+ok(){
+	echo '... ignored'
+}
+
+# Create a user
+/sbin/useradd -m -c "$FULL_NAME" $USER_NAME  || ok
+/sbin/usermod -aG tty $USER_NAME
+
+
+# create files in home dir
+USER_HOME=$(getent passwd $USER_NAME | cut -d: -f6)
+cat >$USER_HOME/.xinitrc <<EOF
+#!/bin/sh
+SERVERNAME="https://www.duckduckgo.com"
+chromium --kiosk \$SERVERNAME
+EOF
+
+cat >>$USER_HOME/.profile <<EOF
+if test -z "\$Display" && test "\$(tty)" = "/dev/tty1"; then
+exec startx
+fi
+EOF
+
+chown -R $USER_NAME:$USER_NAME $USER_HOME/.xinitrc
+chown -R $USER_NAME:$USER_NAME $USER_HOME/.profile
+chmod 644 $USER_HOME/.xinitrc
+chmod 644 $USER_HOME/.profile
+
+# create service file
+GETTY=/etc/systemd/system/getty@tty1.service.d
+mkdir -p $GETTY
+cat >$GETTY/override.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USER_NAME --noclear %I 38400 linux
+EOF
+
+echo "To enable edo-browser-kiosk:"
+echo "    systemctl enable getty@tty1.service"

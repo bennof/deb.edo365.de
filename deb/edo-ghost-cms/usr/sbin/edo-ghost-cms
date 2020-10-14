@@ -1,0 +1,281 @@
+#!/bin/sh
+
+
+die(){
+    echo -n "ERROR: "
+    echo $@
+    exit 1
+}
+
+ok(){
+	echo '... ignored'
+}
+
+help(){
+    cat <<EOF 
+HELP:
+usage: edo-ghost-cms [mode] <args>
+
+modes: new, rm
+
+new [name] <args>: create a new ghost site with name
+    -u= --user=[username]       sets username (default: <name> )
+    -d= --dir=[path]            install location (default: /var/www/<name>)
+
+    DB Setup:
+    --db=[sql db name]          set db name (default: <name>)
+    --db-user=[sql username]    set db user name (default: '<username>'@'localhost')
+    --db-passwd=[sql password]  set db name (default: random)
+EOF
+}
+
+
+new_site(){
+    NAME=$1
+    BASE_PATH=/var/www
+    shift
+    test -n $NAME || die "No name given"
+
+    for i in "$@"
+    do
+        case $i in
+            -u=*|--user=*)
+                USER_NAME="${i#*=}"
+                shift 
+            ;;
+            -d=*|--dir=*)
+                SITE_PATH="${i#*=}"
+                shift 
+            ;; ## DB
+            --db=*)
+                DB_NAME="${i#*=}"
+                shift 
+            ;;
+            --db-user=*)
+                DB_USER_NAME="${i#*=}"
+                shift 
+            ;;
+            --db-passwd=*)
+                DB_PASSWD="${i#*=}"
+                shift 
+            ;;
+            *)
+                # unknown option
+            ;;
+        esac
+    done
+
+
+    # setup variables
+    test -n "$SITE_PATH" ||  SITE_PATH=$BASE_PATH/$NAME
+    test -n "$USER_NAME" ||  USER_NAME=$NAME
+    test -n "$DB_USER_NAME" ||  DB_USER_NAME="$USER_NAME"
+    test -n "$DB_USER_NAME_LH" ||  DB_USER_NAME_LH="'$USER_NAME'@'localhost'"
+    test -n "$DB_PASSWD" ||  DB_PASSWD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-10};echo;)
+    test -n "$DB_NAME" ||  DB_NAME=$NAME
+    test -n "$SERVER_NAME" || SERVER_NAME="$NAME"
+    test -n "$SERVER_PORT" || SERVER_PORT="80"
+    test -n "$URL" || URL="http://$SERVER_NAME:$SERVER_PORT/"
+    test -n "$GHOST_HOST" || GHOST_HOST="127.0.0.1"
+    test -n "$GHOST_PORT" || GHOST_PORT=2368
+
+
+    echo "Install       $NAME"
+    echo "install path: $SITE_PATH"
+    echo "user:         $USER_NAME"
+    echo "db:           $DB_NAME"
+    echo "db user:      $DB_USER_NAME"
+    echo "db password:  $DB_PASSWD"
+    echo "URL:          $URL"
+    echo "Ghost Host:   $GHOST_HOST"
+    echo "Ghost Port:   $GHOST_PORT"
+
+
+    #read line 
+
+    # create user
+    /sbin/useradd -m -c "$NAME Ghost CMS" $USER_NAME  || ok
+    #/sbin/usermod -aG sudo  
+
+    # database setup
+    SQL=$(echo \
+        "CREATE USER $DB_USER_NAME_LH IDENTIFIED BY '$DB_PASSWD'; " \
+        "CREATE DATABASE $DB_NAME; " \
+        "GRANT ALL ON $DB_NAME.* TO $DB_USER_NAME_LH; " \
+    )
+
+    echo "Updating MySQL:"
+    #echo $SQL
+    echo "MySQL Login: root" 
+    echo $SQL | mysql -u root -p || die "Failed to create SQL database."
+
+    # mk directory
+    mkdir -p $SITE_PATH
+    chown $USER_NAME:$USER_NAME $SITE_PATH
+    chmod 775 $SITE_PATH
+    cd $SITE_PATH
+
+    # install
+    su - $USER_NAME -c "cd $SITE_PATH; ghost install --no-setup" 
+
+    # config
+    cat <<EOF > $SITE_PATH/config.production.json
+{
+    "url":"$URL",
+    "server":{
+        "port":"$GHOST_PORT",
+        "host":"$GHOST_HOST"
+    },
+    "database":{
+        "client":"mysql",
+        "connection":{
+            "host":"localhost",
+            "user":"$DB_USER_NAME",
+            "password":"$DB_PASSWD",
+            "database":"$DB_NAME"
+        }
+    },
+    "mail":{
+        "transport":"Direct"
+    },
+    "logging":{
+        "transports":[
+            "file",
+            "stdout"
+        ]
+    },
+    "process": "systemd",
+    "paths": {
+        "contentPath":"$SITE_PATH/content"
+    }
+}
+EOF
+    chown $USER_NAME:$USER_NAME $SITE_PATH/config.production.json
+    su - $USER_NAME -c "cd $SITE_PATH; ghost setup migrate"
+
+    cat <<EOF > /etc/systemd/system/$NAME.service
+[Unit]
+    Description=$NAME Ghost CMS
+    Documentation=https://docs.ghost.org
+
+[Service]
+    Type=simple
+    WorkingDirectory=$SITE_PATH
+    User=$USER_NAME
+    Environment="NODE_ENV=production"
+    ExecStart=/usr/bin/node /usr/bin/ghost run
+    Restart=always
+
+[Install]
+    WantedBy=multi-user.target
+EOF
+    systemctl enable $NAME.service
+
+
+    cat <<EOF > /etc/nginx/sites-available/$NAME
+server {
+    listen 80 http2;
+    listen [::]:80 http2;
+
+    server_name $SERVER_NAME;
+    root $SITE_PATH/system/nginx-root;
+
+    location / {
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Host \$http_host;
+        proxy_pass http://$GHOST_HOST:$GHOST_PORT;
+    }
+
+    location ~ /.well-known {
+        allow all;
+    }
+
+    client_max_body_size 50m;
+}
+EOF
+    ln -s /etc/nginx/sites-available/$NAME /etc/nginx/sites-enabled/$NAME
+    systemctl restart nginx
+
+    echo done.    
+}
+
+
+
+rm_site(){
+    NAME=$1
+    BASE_PATH=/var/www
+    shift
+    test -n $NAME || die "No name given"
+
+    for i in "$@"
+    do
+        case $i in
+            -u=*|--user=*)
+                USER_NAME="${i#*=}"
+                shift 
+            ;;
+            -d=*|--dir=*)
+                SITE_PATH="${i#*=}"
+                shift 
+            ;; ## DB
+            --db=*)
+                DB_NAME="${i#*=}"
+                shift 
+            ;;
+            --db-user=*)
+                DB_USER_NAME="${i#*=}"
+                shift 
+            ;;
+            *)
+                # unknown option
+            ;;
+        esac
+    done
+
+    # setup variables
+    test -n "$SITE_PATH" ||  SITE_PATH=$BASE_PATH/$NAME
+    test -n "$USER_NAME" ||  USER_NAME=$NAME
+    test -n "$DB_USER_NAME" ||  DB_USER_NAME="'$USER_NAME'@'localhost'"
+    test -n "$DB_NAME" ||  DB_NAME=$NAME
+
+
+    echo "REMOVE        $NAME"
+    echo "install path: $SITE_PATH"
+    echo "user:         $USER_NAME"
+    echo "db:           $DB_NAME"
+    echo "db user:      $DB_USER_NAME"
+
+    rm -rf $SITE_PATH
+    echo "MySQL Login: root" 
+    echo "DROP DATABASE $DB_NAME; DROP USER $DB_USER_NAME;" | mysql -u root -p || ok
+    /sbin/userdel -f -r $USER_NAME &> /dev/null
+
+
+    rm -f /etc/nginx/sites-enabled/$NAME /etc/nginx/sites-available/$NAME
+    systemctl restart nginx
+
+    systemctl disable $NAME.service
+    rm -f /etc/systemd/system/$NAME.service
+    
+}
+
+#### MAIN ####
+echo "edo365 ghost cms"
+
+MODE=$1
+shift
+
+case $MODE in
+    new)
+        new_site $@
+    ;;
+    rm)
+        rm_site $@
+    ;;
+    *)
+        help
+    ;;
+esac
+exit 0;
