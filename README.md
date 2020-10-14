@@ -1,9 +1,13 @@
-# DPKG.mk 
+# deb.edo365.de
+
+A simple minimal repository
+
+## DPKG.mk 
 
 a makefile for debian packages
 
 
-## Commands
+### Commands
 
 * `init` Initialize a new repository/project
 * `build` build all packages
@@ -16,7 +20,7 @@ a makefile for debian packages
 * `test` return variables
 * `install` create a working local repository
 
-## Variables
+### Variables
 
 * `REP_NAME` name of the repository
 * `INSTALL_PATH` installation path of the repository (default: `/usr/local/<repository name>`)
@@ -29,6 +33,15 @@ a makefile for debian packages
 * `DEBS`?=$(SRCS:%/=$(BUILD_PATH)/%.deb)
 * `RELEASE`=Release
 * `URL_MK`?="https://raw.githubusercontent.com/bennof/debpkg.mk/master/debpkg.mk"
+
+
+## Packages
+
+### edo-browser-kiosk
+Using chromium in kiosk-mode without a desktop environment
+
+### edo-ghost-cms
+Helper for ghost cms
 
 ## Author 
 Benjamin 'Benno' Falkner <contact@edo365.de>
