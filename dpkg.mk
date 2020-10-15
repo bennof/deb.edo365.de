@@ -111,10 +111,13 @@ new:
 	@echo "" >> $(SRC_PATH)/$(NAME)/DEBIAN/control 
 
 # Initialize a new project with dpkg.mk
-init: Makefile
+init: Makefile 
 	@echo "Install all dependencies"
 	sudo apt-get install dpkg dpkg-dev gzip
 	mkdir -p $(BUILD_PATH) $(SRC_PATH)
+
+install_deps:
+	sudo apt-get install dpkg dpkg-dev gzip
 
 Makefile:
 	@echo "#Makefile for DPKG\ninclude dpkg.mk" > Makefile
