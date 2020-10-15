@@ -28,8 +28,8 @@ ok(){
 }
 
 # Create a user
-/sbin/useradd -m -c "$FULL_NAME" $USER_NAME  || ok
-/sbin/usermod -aG tty $USER_NAME
+useradd -m -c "$FULL_NAME" $USER_NAME  || ok
+usermod -aG tty $USER_NAME
 
 
 # create files in home dir

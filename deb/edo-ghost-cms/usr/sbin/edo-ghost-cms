@@ -94,7 +94,7 @@ new_site(){
     #read line 
 
     # create user
-    /sbin/useradd -m -c "$NAME Ghost CMS" $USER_NAME  || ok
+    useradd -m -c "$NAME Ghost CMS" $USER_NAME  || ok
     #/sbin/usermod -aG sudo  
 
     # database setup
@@ -250,7 +250,7 @@ rm_site(){
     rm -rf $SITE_PATH
     echo "MySQL Login: root" 
     echo "DROP DATABASE $DB_NAME; DROP USER $DB_USER_NAME;" | mysql -u root -p || ok
-    /sbin/userdel -f -r $USER_NAME &> /dev/null
+    userdel -f -r $USER_NAME &> /dev/null
 
 
     rm -f /etc/nginx/sites-enabled/$NAME /etc/nginx/sites-available/$NAME
